@@ -63,17 +63,60 @@ def runGrove (canvas : Canvas) (fontReg : FontRegistry) (fontId : Arbor.FontId)
         events := events.push (.mouseUp (Arbor.MouseEvent.mk' mx my .left mods))
 
       -- Handle keyboard events
+      -- Compute viewport info for scroll and page navigation
+      let rowH := uiSizes.rowHeight * screenScale
+      let headerH := uiSizes.rowHeight * screenScale + uiSizes.padding * screenScale * 2
+      let statusH := uiSizes.rowHeight * screenScale
+      let viewportH := screenH - headerH - statusH
+      let visibleCount := AppState.visibleItemCount rowH viewportH
+
       let hasKey ← c.ctx.hasKeyPressed
       if hasKey then
         let keyCode ← c.ctx.getKeyCode
         c.ctx.clearKey
-        -- Arrow keys: up=126, down=125, left=123, right=124, return=36
+        -- macOS key codes:
+        -- Arrow: up=126, down=125, left=123, right=124
+        -- Return=36, Escape=53, Backspace=51
+        -- Page Up=116, Page Down=121, Home=115, End=119
         match keyCode.toNat with
         | 126 => -- Up arrow
           model := update .moveFocusUp model
+          model := update (.ensureFocusVisible rowH viewportH) model
         | 125 => -- Down arrow
           model := update .moveFocusDown model
-        | 36 => -- Return/Enter
+          model := update (.ensureFocusVisible rowH viewportH) model
+        | 116 => -- Page Up
+          model := update (.moveFocusPageUp visibleCount) model
+          model := update (.ensureFocusVisible rowH viewportH) model
+        | 121 => -- Page Down
+          model := update (.moveFocusPageDown visibleCount) model
+          model := update (.ensureFocusVisible rowH viewportH) model
+        | 115 => -- Home
+          model := update .moveFocusToFirst model
+          model := update (.ensureFocusVisible rowH viewportH) model
+        | 119 => -- End
+          model := update .moveFocusToLast model
+          model := update (.ensureFocusVisible rowH viewportH) model
+        | 36 => -- Return/Enter - open directory
+          if let some idx := model.listFocusedIndex then
+            if h : idx < model.listItems.size then
+              let item := model.listItems[idx]
+              if item.isDirectory then
+                model := update (.navigateTo item.path) model
+                needsLoad := true
+        | 53 => -- Escape - go up a directory
+          if model.nav.canGoUp then
+            model := update .goUp model
+            needsLoad := true
+        | 51 => -- Backspace - go back in history
+          if model.nav.canGoBack then
+            model := update .goBack model
+            needsLoad := true
+        | 123 => -- Left arrow - also go up a directory
+          if model.nav.canGoUp then
+            model := update .goUp model
+            needsLoad := true
+        | 124 => -- Right arrow - open directory (same as Enter)
           if let some idx := model.listFocusedIndex then
             if h : idx < model.listItems.size then
               let item := model.listItems[idx]
@@ -92,14 +135,13 @@ def runGrove (canvas : Canvas) (fontReg : FontRegistry) (fontId : Arbor.FontId)
           -- Handle click to select items
           match ev with
           | .mouseDown _ =>
-            -- Simple row-based hit detection
-            let rowH := uiSizes.rowHeight * screenScale
-            let headerH := uiSizes.rowHeight * screenScale + uiSizes.padding * screenScale * 2
-            if my > headerH then
-              let relY := my - headerH
+            -- Row-based hit detection with scroll offset
+            if my > headerH && my < (screenH - statusH) then
+              let relY := my - headerH + model.listScrollOffset
               let idx := (relY / rowH).toUInt64.toNat
               if idx < model.listItems.size then
                 model := update (.selectItem idx) model
+                model := update (.ensureFocusVisible rowH viewportH) model
           | _ => pure ()
 
       -- Render

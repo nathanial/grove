@@ -34,7 +34,13 @@ inductive Msg where
   | activateItem (index : Nat)  -- Enter or double-click
   | moveFocusUp
   | moveFocusDown
+  | moveFocusToFirst
+  | moveFocusToLast
+  | moveFocusPageUp (visibleCount : Nat)
+  | moveFocusPageDown (visibleCount : Nat)
   | clearSelection
+  -- Scroll
+  | ensureFocusVisible (rowHeight : Float) (viewportHeight : Float)
 deriving Repr
 
 /-- Update the application state based on a message. -/
@@ -112,8 +118,22 @@ def update (msg : Msg) (state : AppState) : AppState :=
   | .moveFocusDown =>
     let state' := state.moveFocusDown
     state'.selectFocused
+  | .moveFocusToFirst =>
+    let state' := state.moveFocusToFirst
+    state'.selectFocused
+  | .moveFocusToLast =>
+    let state' := state.moveFocusToLast
+    state'.selectFocused
+  | .moveFocusPageUp visibleCount =>
+    let state' := state.moveFocusPageUp visibleCount
+    state'.selectFocused
+  | .moveFocusPageDown visibleCount =>
+    let state' := state.moveFocusPageDown visibleCount
+    state'.selectFocused
   | .clearSelection =>
     { state with listSelection := .empty }
+  | .ensureFocusVisible rowHeight viewportHeight =>
+    state.ensureFocusVisible rowHeight viewportHeight
 
 /-- UI sizing constants. -/
 structure UISizes where

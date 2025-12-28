@@ -141,6 +141,57 @@ def selectFocused (state : AppState) : AppState :=
     else
       state
 
+/-- Move focus to first item. -/
+def moveFocusToFirst (state : AppState) : AppState :=
+  if state.listItems.isEmpty then state
+  else { state with listFocusedIndex := some 0 }
+
+/-- Move focus to last item. -/
+def moveFocusToLast (state : AppState) : AppState :=
+  if state.listItems.isEmpty then state
+  else { state with listFocusedIndex := some (state.listItems.size - 1) }
+
+/-- Move focus up by a page (given visible item count). -/
+def moveFocusPageUp (state : AppState) (visibleCount : Nat) : AppState :=
+  match state.listFocusedIndex with
+  | none => state.moveFocusToFirst
+  | some i =>
+    let newIdx := if i < visibleCount then 0 else i - visibleCount
+    { state with listFocusedIndex := some newIdx }
+
+/-- Move focus down by a page (given visible item count). -/
+def moveFocusPageDown (state : AppState) (visibleCount : Nat) : AppState :=
+  let maxIdx := if state.listItems.isEmpty then 0 else state.listItems.size - 1
+  match state.listFocusedIndex with
+  | none => state.moveFocusToFirst
+  | some i =>
+    let newIdx := min (i + visibleCount) maxIdx
+    { state with listFocusedIndex := some newIdx }
+
+/-- Ensure the focused item is visible by adjusting scroll offset.
+    Returns updated state with scroll offset adjusted if needed. -/
+def ensureFocusVisible (state : AppState) (rowHeight : Float) (viewportHeight : Float) : AppState :=
+  match state.listFocusedIndex with
+  | none => state
+  | some idx =>
+    let itemTop := idx.toFloat * rowHeight
+    let itemBottom := itemTop + rowHeight
+    let scrollTop := state.listScrollOffset
+    let scrollBottom := scrollTop + viewportHeight
+
+    -- If item is above viewport, scroll up
+    if itemTop < scrollTop then
+      { state with listScrollOffset := itemTop }
+    -- If item is below viewport, scroll down
+    else if itemBottom > scrollBottom then
+      { state with listScrollOffset := itemBottom - viewportHeight }
+    else
+      state
+
+/-- Compute how many items are visible given row height and viewport height. -/
+def visibleItemCount (rowHeight : Float) (viewportHeight : Float) : Nat :=
+  max 1 (viewportHeight / rowHeight).toUInt64.toNat
+
 end AppState
 
 end Grove
