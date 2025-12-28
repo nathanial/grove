@@ -8,6 +8,7 @@ import Arbor
 import Grove.Core.Types
 import Grove.Core.FileSystem
 import Grove.State.AppState
+import Grove.Widgets.TreeView
 import Trellis
 import Tincture
 
@@ -41,6 +42,15 @@ inductive Msg where
   | clearSelection
   -- Scroll
   | ensureFocusVisible (rowHeight : Float) (viewportHeight : Float)
+  -- Tree sidebar
+  | treeMoveFocusUp
+  | treeMoveFocusDown
+  | treeToggleExpand (index : Nat)
+  | treeChildrenLoaded (parentIndex : Nat) (children : Array TreeNode)
+  | treeSelectNode (index : Nat)
+  -- Panel focus
+  | focusNextPanel
+  | focusPrevPanel
 deriving Repr
 
 /-- Update the application state based on a message. -/
@@ -134,6 +144,42 @@ def update (msg : Msg) (state : AppState) : AppState :=
     { state with listSelection := .empty }
   | .ensureFocusVisible rowHeight viewportHeight =>
     state.ensureFocusVisible rowHeight viewportHeight
+  | .treeMoveFocusUp =>
+    { state with tree := state.tree.moveFocusUp }
+  | .treeMoveFocusDown =>
+    { state with tree := state.tree.moveFocusDown }
+  | .treeToggleExpand index =>
+    let (tree', _needsLoad) := state.tree.toggleExpand index
+    { state with tree := tree' }
+  | .treeChildrenLoaded parentIndex children =>
+    { state with tree := state.tree.insertChildren parentIndex children }
+  | .treeSelectNode index =>
+    if h : index < state.tree.nodes.size then
+      let node := state.tree.nodes[index]
+      let tree' := { state.tree with focusedIndex := some index }
+      -- Navigate to the selected directory
+      { state with
+        tree := tree'
+        nav := state.nav.navigateTo node.path
+        listItems := #[]
+        listFocusedIndex := none
+        listSelection := .empty
+        isLoading := true
+        errorMessage := none }
+    else
+      state
+  | .focusNextPanel =>
+    let nextPanel := match state.focusPanel with
+      | .tree => .list
+      | .list => .tree
+      | .addressBar => .tree
+    { state with focusPanel := nextPanel }
+  | .focusPrevPanel =>
+    let prevPanel := match state.focusPanel with
+      | .tree => .list
+      | .list => .tree
+      | .addressBar => .list
+    { state with focusPanel := prevPanel }
 
 /-- UI sizing constants. -/
 structure UISizes where
@@ -144,6 +190,8 @@ structure UISizes where
   padding : Float := 12.0
   iconSize : Float := 20.0
   iconGap : Float := 8.0
+  sidebarWidth : Float := 200.0
+  dividerWidth : Float := 1.0
 deriving Repr
 
 def uiSizes : UISizes := {}
@@ -159,6 +207,8 @@ structure Theme where
   folderColor : Color := Color.fromHex "#f9e2af" |>.getD (Color.rgb 0.98 0.89 0.69)
   fileColor : Color := Color.fromHex "#a6adc8" |>.getD (Color.gray 0.7)
   errorColor : Color := Color.fromHex "#f38ba8" |>.getD (Color.rgb 0.95 0.55 0.66)
+  sidebarBg : Color := Color.fromHex "#181825" |>.getD (Color.rgb 0.09 0.09 0.15)
+  divider : Color := Color.fromHex "#313244" |>.getD (Color.rgb 0.19 0.20 0.27)
 deriving Repr
 
 def theme : Theme := {}
@@ -168,6 +218,7 @@ structure WidgetIds where
   root : Nat := 0
   header : Nat := 1
   pathText : Nat := 2
+  sidebar : Nat := 5
   fileList : Nat := 10
   statusBar : Nat := 100
 deriving Repr
@@ -262,15 +313,45 @@ def statusBarView (fontId : FontId) (state : AppState) (screenScale : Float) : W
     text' statusText fontId colors.subtle .left
   ]
 
+/-- Render the sidebar with tree view. -/
+def sidebarView (fontId : FontId) (state : AppState) (screenScale : Float) : WidgetBuilder := do
+  let sizes := uiSizes
+  let colors := theme
+  let sidebarW := sizes.sidebarWidth * screenScale
+  let dividerW := sizes.dividerWidth * screenScale
+
+  let treeColors : Widgets.TreeViewColors :=
+    { background := colors.sidebarBg
+      foreground := colors.foreground
+      subtle := colors.subtle
+      focus := colors.focus
+      folderColor := colors.folderColor }
+
+  row (gap := 0) (style := {}) #[
+    -- Tree view
+    Widgets.treeView fontId state.tree screenScale treeColors sidebarW,
+    -- Divider
+    box { backgroundColor := some colors.divider
+          minWidth := some dividerW }
+  ]
+
+/-- Render the main content area (header + file list + status bar). -/
+def mainContentView (fontId : FontId) (state : AppState) (screenScale : Float) : WidgetBuilder := do
+  let colors := theme
+  column (gap := 0) (style := { backgroundColor := some colors.background }) #[
+    headerView fontId state screenScale,
+    fileListView fontId state screenScale,
+    statusBarView fontId state screenScale
+  ]
+
 /-- Main view function. -/
 def view (fontId : FontId) (screenScale : Float) (state : AppState) : UI Msg :=
   let colors := theme
   UIBuilder.buildFrom widgetIds.root do
     UIBuilder.lift do
-      column (gap := 0) (style := { backgroundColor := some colors.background }) #[
-        headerView fontId state screenScale,
-        fileListView fontId state screenScale,
-        statusBarView fontId state screenScale
+      row (gap := 0) (style := { backgroundColor := some colors.background }) #[
+        sidebarView fontId state screenScale,
+        mainContentView fontId state screenScale
       ]
 
 end Grove

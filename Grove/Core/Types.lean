@@ -144,4 +144,114 @@ inductive FocusPanel where
   | addressBar
 deriving Repr, BEq
 
+/-- A node in the directory tree sidebar.
+    Uses a flat representation with depth for efficient rendering. -/
+structure TreeNode where
+  path : System.FilePath
+  name : String
+  depth : Nat := 0
+  isExpanded : Bool := false
+  isLoaded : Bool := false
+  hasChildren : Bool := true  -- Assume directories have children until proven otherwise
+deriving Repr, BEq, Inhabited
+
+namespace TreeNode
+
+/-- Create a tree node from a path. -/
+def fromPath (path : System.FilePath) (depth : Nat := 0) : TreeNode :=
+  let name := path.fileName.getD path.toString
+  { path, name, depth }
+
+/-- Create root node from a path. -/
+def root (path : System.FilePath) : TreeNode :=
+  { path
+    name := path.fileName.getD path.toString
+    depth := 0
+    isExpanded := true
+    isLoaded := false
+    hasChildren := true }
+
+end TreeNode
+
+/-- Tree state for the sidebar.
+    Uses flat array with depth tracking for efficient operations. -/
+structure TreeState where
+  nodes : Array TreeNode := #[]
+  focusedIndex : Option Nat := none
+  rootPath : System.FilePath
+deriving Repr
+
+namespace TreeState
+
+/-- Create initial tree state with a root directory. -/
+def init (rootPath : System.FilePath) : TreeState :=
+  { nodes := #[TreeNode.root rootPath]
+    focusedIndex := some 0
+    rootPath }
+
+/-- Find index of a node by path. -/
+def findByPath (state : TreeState) (path : System.FilePath) : Option Nat :=
+  state.nodes.findIdx? (·.path == path)
+
+/-- Get the focused node if any. -/
+def focusedNode (state : TreeState) : Option TreeNode :=
+  state.focusedIndex.bind fun i =>
+    if h : i < state.nodes.size then some state.nodes[i] else none
+
+/-- Check if a node at index is focused. -/
+def isFocused (state : TreeState) (index : Nat) : Bool :=
+  state.focusedIndex == some index
+
+/-- Move focus up in the tree. -/
+def moveFocusUp (state : TreeState) : TreeState :=
+  match state.focusedIndex with
+  | none => { state with focusedIndex := if state.nodes.isEmpty then none else some 0 }
+  | some i => { state with focusedIndex := some (if i > 0 then i - 1 else 0) }
+
+/-- Move focus down in the tree. -/
+def moveFocusDown (state : TreeState) : TreeState :=
+  let maxIdx := if state.nodes.isEmpty then 0 else state.nodes.size - 1
+  match state.focusedIndex with
+  | none => { state with focusedIndex := if state.nodes.isEmpty then none else some 0 }
+  | some i => { state with focusedIndex := some (min (i + 1) maxIdx) }
+
+/-- Toggle expansion of a node. Returns the updated state and whether children need loading. -/
+def toggleExpand (state : TreeState) (index : Nat) : TreeState × Bool :=
+  if h : index < state.nodes.size then
+    let node := state.nodes[index]
+    let needsLoad := !node.isLoaded && !node.isExpanded
+    let newNode := { node with isExpanded := !node.isExpanded }
+    -- Update the node in the array using extract and concat
+    let before := state.nodes.extract 0 index
+    let after := state.nodes.extract (index + 1) state.nodes.size
+    let newNodes := before ++ #[newNode] ++ after
+    -- If collapsing, remove children
+    let newNodes := if node.isExpanded then
+      removeChildren newNodes index node.depth
+    else
+      newNodes
+    ({ state with nodes := newNodes }, needsLoad)
+  else
+    (state, false)
+where
+  removeChildren (nodes : Array TreeNode) (parentIdx : Nat) (parentDepth : Nat) : Array TreeNode :=
+    -- Remove all nodes after parentIdx that have depth > parentDepth
+    let beforeParent := nodes.extract 0 (parentIdx + 1)
+    let afterParent := nodes.extract (parentIdx + 1) nodes.size
+    let remaining := afterParent.filter fun n => n.depth <= parentDepth
+    beforeParent ++ remaining
+
+/-- Insert loaded children after a parent node. -/
+def insertChildren (state : TreeState) (parentIndex : Nat) (children : Array TreeNode) : TreeState :=
+  if h : parentIndex < state.nodes.size then
+    let parent := state.nodes[parentIndex]
+    let newParent := { parent with isLoaded := true, hasChildren := !children.isEmpty }
+    let before := state.nodes.extract 0 parentIndex
+    let after := state.nodes.extract (parentIndex + 1) state.nodes.size
+    { state with nodes := before ++ #[newParent] ++ children ++ after }
+  else
+    state
+
+end TreeState
+
 end Grove

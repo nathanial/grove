@@ -67,6 +67,9 @@ structure AppState where
   -- Navigation
   nav : NavigationHistory
 
+  -- Tree sidebar
+  tree : TreeState
+
   -- File list (main content)
   listItems : Array FileItem := #[]
   listSelection : Selection := {}
@@ -76,6 +79,7 @@ structure AppState where
 
   -- UI state
   focusPanel : FocusPanel := .list
+  sidebarWidth : Float := 200.0
 
   -- Status
   statusMessage : Option String := none
@@ -87,7 +91,8 @@ namespace AppState
 
 /-- Create initial state starting at the given directory. -/
 def init (startPath : System.FilePath) : AppState :=
-  { nav := NavigationHistory.init startPath }
+  { nav := NavigationHistory.init startPath
+    tree := TreeState.init startPath }
 
 /-- Get the current directory path. -/
 def currentPath (state : AppState) : System.FilePath :=
