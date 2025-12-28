@@ -1,0 +1,30 @@
+# Lake build artifacts
+.lake/
+lake-packages/
+build/
+
+# Lean build artifacts
+*.olean
+*.ilean
+*.trace
+*.c
+*.o
+*.a
+
+# Editor files
+.vscode/
+*.swp
+*.swo
+*~
+.idea/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Thumbnails
+._*
+
+# Logs
+*.log
