@@ -7,16 +7,15 @@ package grove where
     ⟨`relaxedAutoImplicit, false⟩
   ]
 
--- Local workspace dependencies
-require afferent from ".." / "afferent"
-require arbor from ".." / "arbor"
-require canopy from ".." / "canopy"
-require trellis from ".." / "trellis"
-require tincture from ".." / "tincture"
-require staple from ".." / "staple"
+require afferent from git "https://github.com/nathanial/afferent" @ "v0.0.1"
+require arbor from git "https://github.com/nathanial/arbor" @ "v0.0.1"
+require canopy from git "https://github.com/nathanial/canopy" @ "v0.0.1"
+require trellis from git "https://github.com/nathanial/trellis" @ "v0.0.1"
+require tincture from git "https://github.com/nathanial/tincture" @ "v0.0.1"
+require staple from git "https://github.com/nathanial/staple" @ "v0.0.1"
 
 -- Test dependencies
-require crucible from ".." / "crucible"
+require crucible from git "https://github.com/nathanial/crucible" @ "v0.0.1"
 
 @[default_target]
 lean_lib Grove where
