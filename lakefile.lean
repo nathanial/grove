@@ -7,12 +7,12 @@ package grove where
     ⟨`relaxedAutoImplicit, false⟩
   ]
 
-require afferent from git "https://github.com/nathanial/afferent" @ "v0.0.1"
+require afferent from git "https://github.com/nathanial/afferent" @ "v0.0.2"
 require arbor from git "https://github.com/nathanial/arbor" @ "v0.0.1"
 require canopy from git "https://github.com/nathanial/canopy" @ "v0.0.1"
 require trellis from git "https://github.com/nathanial/trellis" @ "v0.0.1"
 require tincture from git "https://github.com/nathanial/tincture" @ "v0.0.1"
-require staple from git "https://github.com/nathanial/staple" @ "v0.0.1"
+require staple from git "https://github.com/nathanial/staple" @ "v0.0.2"
 
 -- Test dependencies
 require crucible from git "https://github.com/nathanial/crucible" @ "v0.0.1"
