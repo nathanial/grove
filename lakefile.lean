@@ -15,7 +15,7 @@ require tincture from git "https://github.com/nathanial/tincture" @ "v0.0.1"
 require staple from git "https://github.com/nathanial/staple" @ "v0.0.2"
 
 -- Test dependencies
-require crucible from git "https://github.com/nathanial/crucible" @ "v0.0.3"
+require crucible from git "https://github.com/nathanial/crucible" @ "v0.0.7"
 
 @[default_target]
 lean_lib Grove where
