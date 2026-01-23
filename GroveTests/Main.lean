@@ -83,7 +83,7 @@ test "SortOrder.kindAsc sorts directories first" := do
   sorted[0]!.name ≡ "docs"
   sorted[0]!.isDirectory ≡ true
 
-#generate_tests
+
 
 end GroveTests
 
